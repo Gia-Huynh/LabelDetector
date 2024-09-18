@@ -8,12 +8,12 @@
 #include <string>
 #include <filesystem>  // C++17 standard
 namespace fs = std::filesystem;
-void generateImage(std::string imgName = "marker23.png")
+cv::Mat generateImage(int id = 0, int markerSize = 200, int markerBorderSize = 1)
 {
     cv::Mat markerImage;
     cv::aruco::Dictionary dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_6X6_250);
-    cv::aruco::generateImageMarker(dictionary, 23, 200, markerImage, 1);
-    cv::imwrite(imgName, markerImage);
+    cv::aruco::generateImageMarker(dictionary, id, markerSize, markerImage, markerBorderSize);
+    return markerImage;
 };
 
 cv::Mat detectOneImage(cv::Mat inputImage)
@@ -26,8 +26,6 @@ cv::Mat detectOneImage(cv::Mat inputImage)
     detector.detectMarkers(inputImage, markerCorners, markerIds, rejectedCandidates);
     cv::Mat outputImage = inputImage.clone();
     cv::aruco::drawDetectedMarkers(outputImage, markerCorners, markerIds);
-    cv::imshow("test", outputImage);
-    cv::waitKey(0);
     return outputImage;
 };
 
@@ -58,9 +56,192 @@ int detectFolder()
     return 0;
 }
 
+int generateMarker()
+{
+    std::string folderPath = "L:\\LabelDetector\\StockLabel";
+    cv::Mat marker;
+    for (int i = 0; i < 10; i++)
+    {
+        marker = generateImage(i, 200, 1);
+        cv::imwrite(folderPath + "/" + std::to_string(i) + ".png", marker);
+    }
+    return 0;
+};
+cv::VideoCapture webcamPrepare()
+{
+    cv::VideoCapture cap(0, cv::CAP_DSHOW);
+    if (!cap.isOpened()) {
+        std::cout << "Error: Could not open webcam" << std::endl;
+        return cap;
+    }
+    int frame_width = 4320;
+    int frame_height = 7680;
+    auto codec = cv::VideoWriter::fourcc('M', 'J', 'P', 'G');
+    int fps = 60;
+    cap.set(cv::CAP_PROP_FRAME_WIDTH, frame_width);
+    cap.set(cv::CAP_PROP_FRAME_HEIGHT, frame_height);
+    cap.set(cv::CAP_PROP_FPS, fps);
+    cap.set(cv::CAP_PROP_FOURCC, codec);
+
+    fps = cap.get(cv::CAP_PROP_FPS);
+    frame_width = cap.get(cv::CAP_PROP_FRAME_WIDTH);
+    frame_height = cap.get(cv::CAP_PROP_FRAME_HEIGHT);
+    std::cout << "\n" << fps << ": webcamfps\n\n";
+    std::cout << "\n" << frame_width << ": frame_width\n\n";
+    std::cout << "\n" << frame_height << ": frame_height\n\n";
+    return cap;
+};
+int webcamRead()
+{
+    cv::VideoCapture cap = webcamPrepare();
+    if (!cap.isOpened()) {
+        std::cout << "Error: Could not open webcam" << std::endl;
+        return -1;
+    }
+    // Create a window to display the video stream
+    cv::namedWindow("Webcam Stream", cv::WINDOW_AUTOSIZE);
+    cv::Mat frame;
+    while (true) {
+        cap >> frame;
+        if (frame.empty()) {
+            std::cout << "Error: Empty frame" << std::endl;
+            break;
+        }
+        cv::imshow("Webcam Stream", frame);
+        if (cv::waitKey(25) == 'q') {
+            break;
+        }
+    }
+    cap.release();
+    cv::destroyAllWindows();
+    return 0;
+};
+
+cv::Mat generateBlankImage()
+{
+    int width = 2000;
+    int height = static_cast<int>(width / 1.414); 
+    cv::Mat blank_image(height, width, CV_8UC3, cv::Scalar(255, 255, 255));
+
+    std::vector <cv::Mat> markerList;
+    for (int i = 0; i < 4; i++)
+    {
+        cv::Mat rgbMarker;
+        cvtColor(generateImage(i, 200, 1), rgbMarker, cv::COLOR_GRAY2RGB);
+        markerList.push_back(rgbMarker);
+    };
+
+    // Top-left corner
+    markerList[0].copyTo(blank_image(cv::Rect(0, 0, markerList[0].cols, markerList[0].rows)));
+    // Top-right corner
+    markerList[1].copyTo(blank_image(cv::Rect(width - markerList[0].cols, 0, markerList[0].cols, markerList[0].rows)));
+    // Bottom-left corner
+    markerList[2].copyTo(blank_image(cv::Rect(0, height - markerList[0].rows, markerList[0].cols, markerList[0].rows)));
+    // Bottom-right corner
+    markerList[3].copyTo(blank_image(cv::Rect(width - markerList[0].cols, height - markerList[0].rows, markerList[0].cols, markerList[0].rows)));
+    return blank_image;
+    cv::imwrite("output_image_with_markers.png", blank_image);
+};
+
 int main()
 {
-    generateImage
-    //detectFolder();
+    std::vector<int> markerIds;
+    std::vector<std::vector<cv::Point2f>> markerCorners, rejectedCandidates;
+    cv::aruco::DetectorParameters detectorParams = cv::aruco::DetectorParameters();
+    cv::aruco::Dictionary dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_6X6_250);
+    cv::aruco::ArucoDetector detector(dictionary, detectorParams);
+
+    cv::VideoCapture cap = webcamPrepare();
+    if (!cap.isOpened()) {
+        std::cout << "Error: Could not open webcam" << std::endl;
+        return -1;
+    }
+    // Create a window to display the video stream
+    cv::namedWindow("Webcam Stream", cv::WINDOW_AUTOSIZE);
+    cv::namedWindow("Output Stream", cv::WINDOW_AUTOSIZE);
+    cv::Mat frame;
+    int outputHeight = 1000; // Adjust as needed
+    int outputWidth = static_cast<int>(outputHeight / 1.414); // Keep aspect ratio
+    while (true) {
+        cap >> frame;
+        if (frame.empty()) {std::cout << "Error: Empty frame" << std::endl;break;}
+
+        detector.detectMarkers(frame, markerCorners, markerIds, rejectedCandidates);
+
+        cv::Mat frame_OG = frame.clone();
+        cv::aruco::drawDetectedMarkers(frame, markerCorners, markerIds);
+        cv::imshow("Webcam Stream", frame);
+        std::cout << markerCorners.size()<<"|_ ";
+        cv::Mat SumPerspectiveTransform(cv::Size(3, 3), CV_64FC1);
+        SumPerspectiveTransform = 0;
+        int count = 0;
+        for (int i = 0; i < markerIds.size(); i++)
+        {
+            if (markerIds[i] == 0)
+            {
+                std::vector<cv::Point2f> originalCorners = {
+                    cv::Point2f(outputWidth * 1, outputHeight * 0),   // Right-Top  
+                    cv::Point2f(outputWidth * 1, outputHeight * 0.093),   // Right-Bottom
+                    cv::Point2f(outputWidth * 0.87, outputHeight * 0.093),   // Left-Bottom
+                    cv::Point2f(outputWidth * 0.87, outputHeight * 0),        // Left-Top
+                };
+                std::vector<cv::Point2f> detectedCorners = markerCorners[i];
+                cv::Mat perspectiveTransform = cv::getPerspectiveTransform(detectedCorners, originalCorners);
+                SumPerspectiveTransform += perspectiveTransform;
+                count++;
+            };
+            if (markerIds[i] == 1)
+            {
+                std::vector<cv::Point2f> originalCorners = {
+                    cv::Point2f(outputWidth * 1, outputHeight * 0.905),    // Right-Top
+                    cv::Point2f(outputWidth * 1, outputHeight * 1),  // Right-Bottom
+                    cv::Point2f(outputWidth * 0.87, outputHeight * 1),      // Left-Bottom
+                    cv::Point2f(outputWidth * 0.87, outputHeight * 0.905),  // Left-Top
+                };
+                std::vector<cv::Point2f> detectedCorners = markerCorners[i];
+                cv::Mat perspectiveTransform = cv::getPerspectiveTransform(detectedCorners, originalCorners);
+                SumPerspectiveTransform += perspectiveTransform;
+                count++;
+            };
+            if (markerIds[i] == 2)
+            {
+                std::vector<cv::Point2f> originalCorners = {
+                    cv::Point2f(outputWidth * 0.13, outputHeight * 0),   // Right-Top
+                    cv::Point2f(outputWidth * 0.13, outputHeight * 0.093),   // Right-Bottom
+                    cv::Point2f(outputWidth * 0, outputHeight * 0.093),  // Left-Bottom
+                    cv::Point2f(outputWidth * 0, outputHeight * 0),        // Left-Top
+                };
+                std::vector<cv::Point2f> detectedCorners = markerCorners[i];
+                cv::Mat perspectiveTransform = cv::getPerspectiveTransform(detectedCorners, originalCorners);
+                SumPerspectiveTransform += perspectiveTransform;
+                count++;
+            };
+            if (markerIds[i] == 3)
+            {
+                std::vector<cv::Point2f> originalCorners = {
+                    cv::Point2f(outputWidth * 0.13, outputHeight * 0.905),   // Right-Top
+                    cv::Point2f(outputWidth * 0.13, outputHeight * 1),   // Right-Bottom
+                    cv::Point2f(outputWidth * 0, outputHeight * 1),  // Left-Bottom
+                    cv::Point2f(outputWidth * 0, outputHeight * 0.905),        // Left-Top
+                };
+                std::vector<cv::Point2f> detectedCorners = markerCorners[i];
+                cv::Mat perspectiveTransform = cv::getPerspectiveTransform(detectedCorners, originalCorners);
+                SumPerspectiveTransform += perspectiveTransform;
+                count++;    
+            };
+        } 
+        std::cout << " Count: " << count << "";
+        SumPerspectiveTransform = SumPerspectiveTransform / count;
+        if (count > 0)
+        {
+            cv::Mat outputImage;
+            cv::warpPerspective(frame_OG, outputImage, SumPerspectiveTransform, cv::Size(outputWidth, outputHeight));
+            cv::imshow("Output Stream", outputImage);
+        };
+        std::cout << "\n";
+        if (cv::waitKey(30) == 'q') {break;}
+    }
+    cap.release();
+    cv::destroyAllWindows();
     return 0;
 };

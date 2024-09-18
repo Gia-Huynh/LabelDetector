@@ -175,67 +175,41 @@ int main()
         cv::Mat SumPerspectiveTransform(cv::Size(3, 3), CV_64FC1);
         SumPerspectiveTransform = 0;
         int count = 0;
+        std::vector<cv::Point2f> detectedCorners(4);
         for (int i = 0; i < markerIds.size(); i++)
         {
             if (markerIds[i] == 0)
             {
-                std::vector<cv::Point2f> originalCorners = {
-                    cv::Point2f(outputWidth * 1, outputHeight * 0),   // Right-Top  
-                    cv::Point2f(outputWidth * 1, outputHeight * 0.093),   // Right-Bottom
-                    cv::Point2f(outputWidth * 0.87, outputHeight * 0.093),   // Left-Bottom
-                    cv::Point2f(outputWidth * 0.87, outputHeight * 0),        // Left-Top
-                };
-                std::vector<cv::Point2f> detectedCorners = markerCorners[i];
-                cv::Mat perspectiveTransform = cv::getPerspectiveTransform(detectedCorners, originalCorners);
-                SumPerspectiveTransform += perspectiveTransform;
+                detectedCorners[0] = markerCorners[i][0];
                 count++;
             };
             if (markerIds[i] == 1)
             {
-                std::vector<cv::Point2f> originalCorners = {
-                    cv::Point2f(outputWidth * 1, outputHeight * 0.905),    // Right-Top
-                    cv::Point2f(outputWidth * 1, outputHeight * 1),  // Right-Bottom
-                    cv::Point2f(outputWidth * 0.87, outputHeight * 1),      // Left-Bottom
-                    cv::Point2f(outputWidth * 0.87, outputHeight * 0.905),  // Left-Top
-                };
-                std::vector<cv::Point2f> detectedCorners = markerCorners[i];
-                cv::Mat perspectiveTransform = cv::getPerspectiveTransform(detectedCorners, originalCorners);
-                SumPerspectiveTransform += perspectiveTransform;
+                detectedCorners[1] = markerCorners[i][1];
                 count++;
             };
             if (markerIds[i] == 2)
             {
-                std::vector<cv::Point2f> originalCorners = {
-                    cv::Point2f(outputWidth * 0.13, outputHeight * 0),   // Right-Top
-                    cv::Point2f(outputWidth * 0.13, outputHeight * 0.093),   // Right-Bottom
-                    cv::Point2f(outputWidth * 0, outputHeight * 0.093),  // Left-Bottom
-                    cv::Point2f(outputWidth * 0, outputHeight * 0),        // Left-Top
-                };
-                std::vector<cv::Point2f> detectedCorners = markerCorners[i];
-                cv::Mat perspectiveTransform = cv::getPerspectiveTransform(detectedCorners, originalCorners);
-                SumPerspectiveTransform += perspectiveTransform;
+                detectedCorners[3] = markerCorners[i][3];
                 count++;
             };
             if (markerIds[i] == 3)
             {
-                std::vector<cv::Point2f> originalCorners = {
-                    cv::Point2f(outputWidth * 0.13, outputHeight * 0.905),   // Right-Top
-                    cv::Point2f(outputWidth * 0.13, outputHeight * 1),   // Right-Bottom
-                    cv::Point2f(outputWidth * 0, outputHeight * 1),  // Left-Bottom
-                    cv::Point2f(outputWidth * 0, outputHeight * 0.905),        // Left-Top
-                };
-                std::vector<cv::Point2f> detectedCorners = markerCorners[i];
-                cv::Mat perspectiveTransform = cv::getPerspectiveTransform(detectedCorners, originalCorners);
-                SumPerspectiveTransform += perspectiveTransform;
+                detectedCorners[2] = markerCorners[i][2];
                 count++;    
             };
         } 
-        std::cout << " Count: " << count << "";
-        SumPerspectiveTransform = SumPerspectiveTransform / count;
-        if (count > 0)
+        std::vector<cv::Point2f> originalCorners = {
+            cv::Point2f(outputWidth * 1, outputHeight * 0),   // Right-Top
+            cv::Point2f(outputWidth * 1, outputHeight * 1),   // Right-Bottom
+            cv::Point2f(outputWidth * 0, outputHeight * 1),  // Left-Bottom
+            cv::Point2f(outputWidth * 0, outputHeight * 0),        // Left-Top
+        };
+        if (count == 4)
         {
             cv::Mat outputImage;
-            cv::warpPerspective(frame_OG, outputImage, SumPerspectiveTransform, cv::Size(outputWidth, outputHeight));
+            cv::Mat perspectiveTransform = cv::getPerspectiveTransform(detectedCorners, originalCorners);
+            cv::warpPerspective(frame_OG, outputImage, perspectiveTransform, cv::Size(outputWidth, outputHeight));
             cv::imshow("Output Stream", outputImage);
         };
         std::cout << "\n";

@@ -171,7 +171,7 @@ int main()
         cv::Mat frame_OG = frame.clone();
         cv::aruco::drawDetectedMarkers(frame, markerCorners, markerIds);
         cv::imshow("Webcam Stream", frame);
-        std::cout << markerCorners.size()<<"|_ ";
+        //std::cout << markerCorners.size()<<"|_ ";
         cv::Mat SumPerspectiveTransform(cv::Size(3, 3), CV_64FC1);
         SumPerspectiveTransform = 0;
         int count = 0;
@@ -212,7 +212,7 @@ int main()
             cv::warpPerspective(frame_OG, outputImage, perspectiveTransform, cv::Size(outputWidth, outputHeight));
             cv::imshow("Output Stream", outputImage);
         };
-        std::cout << "\n";
+        //std::cout << "\n";
         if (cv::waitKey(30) == 'q') {break;}
     }
     cap.release();
